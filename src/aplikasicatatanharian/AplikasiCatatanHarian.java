@@ -5,6 +5,10 @@ package aplikasicatatanharian;
 import javax.swing.*;
 import java.sql.*;
 import java.time.LocalDate;
+import java.io.PrintWriter;
+import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileReader;
 
 public class AplikasiCatatanHarian extends javax.swing.JFrame {
 
@@ -119,6 +123,11 @@ public class AplikasiCatatanHarian extends javax.swing.JFrame {
         jPanel2.add(calendar, gridBagConstraints);
 
         btnImport.setText("Import");
+        btnImport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnImportActionPerformed(evt);
+            }
+        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 4;
@@ -128,6 +137,11 @@ public class AplikasiCatatanHarian extends javax.swing.JFrame {
         jPanel2.add(btnImport, gridBagConstraints);
 
         btnExport.setText("Export");
+        btnExport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnExportActionPerformed(evt);
+            }
+        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 4;
@@ -391,6 +405,78 @@ public class AplikasiCatatanHarian extends javax.swing.JFrame {
             e.printStackTrace();
         }
     }
+    
+    private void exportToCSV() {
+    String filePath = "catatan.csv"; // Nama file langsung
+    try (Connection conn = connect();
+         Statement stmt = conn.createStatement();
+         ResultSet rs = stmt.executeQuery("SELECT id, title, content, date FROM notes")) {
+
+        // Membuka file untuk menulis
+        try (PrintWriter writer = new PrintWriter(new File(filePath))) {
+            // Menulis header kolom
+            writer.println("id,title,content,date");
+
+            // Menulis data baris per baris
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String title = rs.getString("title");
+                String content = rs.getString("content");
+                String date = rs.getString("date");
+
+                // Menulis ke file CSV dalam format: id,title,content,date
+                writer.printf("%d,\"%s\",\"%s\",\"%s\"\n", id, title, content.replace("\"", "\"\""), date);
+            }
+        }
+
+        JOptionPane.showMessageDialog(this, "Data berhasil diekspor ke " + filePath);
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat mengekspor data.", "Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+    private void importFromCSV() {
+    String filePath = "catatan.csv"; // Nama file langsung
+    try (Connection conn = connect()) {
+        // Membaca file CSV
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            int count = 0;
+
+            // Lewati baris header
+            if ((line = br.readLine()) != null) {
+                System.out.println("Header ditemukan: " + line);
+            }
+
+            // Persiapkan statement SQL untuk memasukkan data
+            String sql = "INSERT INTO notes (id, title, content, date) VALUES (?, ?, ?, ?)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+
+            // Membaca setiap baris data
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",", -1); // Memisahkan berdasarkan koma
+                int id = Integer.parseInt(values[0]);
+                String title = values[1].replace("\"", "");
+                String content = values[2].replace("\"", "");
+                String date = values[3];
+
+                // Menambahkan data ke statement
+                pstmt.setInt(1, id);
+                pstmt.setString(2, title);
+                pstmt.setString(3, content);
+                pstmt.setString(4, date);
+                pstmt.executeUpdate();
+                count++;
+            }
+
+            JOptionPane.showMessageDialog(this, count + " catatan berhasil diimpor dari " + filePath);
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat mengimpor data.", "Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
 
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
@@ -410,11 +496,13 @@ public class AplikasiCatatanHarian extends javax.swing.JFrame {
     }//GEN-LAST:event_listNotesValueChanged
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
-    saveNote();        // TODO add your handling code here:
+    saveNote(); 
+    loadNotes();// TODO add your handling code here:
     }//GEN-LAST:event_btnAddActionPerformed
 
     private void btnUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUpdateActionPerformed
-    saveNote();         // TODO add your handling code here:
+    saveNote();  
+    loadNotes();// TODO add your handling code here:
     }//GEN-LAST:event_btnUpdateActionPerformed
 
     private void calendarPropertyChange(java.beans.PropertyChangeEvent evt) {//GEN-FIRST:event_calendarPropertyChange
@@ -424,6 +512,15 @@ public class AplikasiCatatanHarian extends javax.swing.JFrame {
             searchByDate(selectedDate.toString());  // Pencarian berdasarkan tanggal yang dipilih di JCalendar
         });        // TODO add your handling code here:
     }//GEN-LAST:event_calendarPropertyChange
+
+    private void btnImportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnImportActionPerformed
+     importFromCSV();
+     loadNotes();// TODO add your handling code here:
+    }//GEN-LAST:event_btnImportActionPerformed
+
+    private void btnExportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnExportActionPerformed
+     exportToCSV();   // TODO add your handling code here:
+    }//GEN-LAST:event_btnExportActionPerformed
 
     /**
      * @param args the command line arguments
